@@ -195,6 +195,8 @@ section{padding:90px 25px;max-width:1100px;margin:auto}
 .rsvp-form .btn{width:100%;background:var(--olive-dark);font-size:.75rem}
 .rsvp-form .btn:hover{background:#536039}
 
+.rsvp-status{margin-top:14px;font-size:.85rem;color:var(--olive-dark);min-height:1.2em}
+
 /* FOOTER */
 footer{background:#303824;color:var(--cream);padding:55px 20px;font-family:var(--font-cursive);font-size:3rem}
 footer small{display:block;font-family:var(--font-body);font-size:.65rem;letter-spacing:2px;color:var(--gold-light);margin-top:10px}
@@ -304,7 +306,7 @@ footer{font-size:2.5rem}
         <div class="family-block">
             <h3>Padrinos de Religioso</h3>
             <p>Edwin Jiovani Mio Espinoza</p>
-            <p>Doris Mañuico Pillaca</p>
+            <p>Clemencia Dolores Mañuico Pillaca</p>
         </div>
 
     </div>
@@ -631,6 +633,8 @@ footer{font-size:2.5rem}
             <i class="fab fa-whatsapp"></i> Enviar confirmación
         </button>
 
+        <p id="rsvpStatus" class="rsvp-status" aria-live="polite"></p>
+
     </form>
 
 </section>
@@ -799,24 +803,50 @@ goToSlide(0);
 startCarousel();
 
 
-/* CONFIRMACIÓN POR WHATSAPP */
-document.getElementById("whatsappForm").addEventListener("submit", function (e) {
+/* CONFIRMACIÓN → GOOGLE SHEETS (+ WhatsApp opcional) */
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwi0KzYAEspnIO939I2d_281qh9V7SQLvCaqqZ-R2-76ZnrpSoC2vjCc0lHwkAbUg3f/exec"; // termina en /exec
+const OPEN_WHATSAPP = true;                          // false = solo guardar en Sheets
+const phoneNumber = "51973641507";
+
+document.getElementById("whatsappForm").addEventListener("submit", async function (e) {
     e.preventDefault();
 
-    const phoneNumber = "51973641507";
+    const btn = this.querySelector("button[type=submit]");
+    const status = document.getElementById("rsvpStatus");
+
     const name = document.getElementById("name").value.trim();
     const attendance = document.getElementById("attendance").value;
     const passes = document.getElementById("passes").value;
     const message = document.getElementById("message").value.trim();
 
-    let text = "*Confirmación de Asistencia - Boda Roberith & Yessenia*\n\n";
-    text += "*Nombre:* " + name + "\n";
-    text += "*Estado:* " + attendance + "\n";
-    text += "*Pases:* " + passes + "\n";
-    if (message) text += "*Mensaje:* " + message + "\n";
+    btn.disabled = true;
+    status.textContent = "Enviando confirmación...";
 
-    const whatsappUrl = "https://api.whatsapp.com/send?phone=" + phoneNumber + "&text=" + encodeURIComponent(text);
-    window.open(whatsappUrl, "_blank");
+    // 1) Guardar en Google Sheets
+    const sendToSheet = fetch(SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        body: new URLSearchParams({ nombre: name, asistencia: attendance, pases: passes, mensaje: message })
+    });
+
+    // 2) Abrir WhatsApp (opcional)
+    if (OPEN_WHATSAPP) {
+        let text = "*Confirmación de Asistencia - Boda Roberith & Yessenia*\n\n";
+        text += "*Nombre:* " + name + "\n";
+        text += "*Estado:* " + attendance + "\n";
+        text += "*Pases:* " + passes + "\n";
+        if (message) text += "*Mensaje:* " + message + "\n";
+        window.open("https://api.whatsapp.com/send?phone=" + phoneNumber + "&text=" + encodeURIComponent(text), "_blank");
+    }
+
+    try {
+        await sendToSheet;
+        status.textContent = "¡Gracias! Tu confirmación fue enviada. 🤍";
+        this.reset();
+    } catch (err) {
+        status.textContent = "No pudimos enviar tu confirmación. Inténtalo de nuevo, por favor.";
+    }
+    btn.disabled = false;
 });
 
 </script>
